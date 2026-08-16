@@ -1,0 +1,342 @@
+---
+title: "Exploratory Data Analysis — Presidential Polling and Results"
+subtitle: "Group project template"
+author: "Your names here"
+date: today
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    number-sections: true
+    code-fold: false
+    embed-resources: false
+    theme: cosmo
+# To render a PDF instead, install tinytex ('quarto install tinytex' in the terminal) and change:
+# format: pdf
+execute:
+  warning: false
+  message: false
+  echo: true
+---
+
+# Overview
+
+The purpose of this quarto file is to explore the polling (and eventually results) datasets. 
+You should aim to explore (and correct)
+
+1. Problems with the _way_ the dataset is stored that requires wrangling (cleaning, manipulations)
+2. The data itself; statistical properties and potential issues (e.g., biases) that it may contain.
+
+Some code snippets are provided but you should add as much more exploratory data analysis and cleaning during this forum and indeed for the EDA Report.
+
+# Setup
+
+```{r}
+#| label: setup
+# install.packages(c("tidyverse", "here", "lubridate", "glue"))
+library(tidyverse)   # dplyr, ggplot2, tidyr, readr, stringr, forcats
+library(here)        # project-relative paths; don't use setwd()
+library(lubridate)   # dates
+library(glue)        # easy string manipulation
+
+raw_dir   <- here("data", "raw")
+clean_dir <- here("data", "clean")
+
+# Election day = first Tuesday after the first Monday in November.
+election_day <- c("2012" = as.Date("2012-11-06"),
+                  "2016" = as.Date("2016-11-08"))
+```
+
+`here()` anchors paths at the project root (determined by the .Rproj file), so this renders on any machine
+without editing file paths. Keep this `.qmd` at the project root (next to the
+`data/` folder).
+
+---
+
+# Source — where did this data come from?
+
+::: {.callout-note}
+## Discuss
+Before interrogating the data directly, read the data information page and provided codebook.
+For **each** of the `.csv` three files, record: who produced it and from
+what underlying source; what licence governs it and what that obliges you to do;
+and whether it is raw or already processed, and by whom.
+
+Also make notes of any irregularities or nuances in the data you may need to be careful with during analysis.
+:::
+
+
+
+::: {.callout-note}
+## Discuss
+The codebook is titled 1976–2020 but the data file runs to 2024. What are the
+implications of documentation lagging the data?
+:::
+
+*Your answer:*
+
+---
+
+# Load the raw data
+
+```{r}
+#| label: load
+#| message: false
+polls_2016_raw <- read_csv(glue("{raw_dir}/state_polls_2016.csv"))
+
+glimpse(polls_2016_raw)
+
+```
+
+::: {.callout-note}
+## Discuss
+Did any column read as an unexpected format?
+What does that tell you about the contents of the column?
+Are there any columns that should be cleaned further? If so, what needs to be done?
+:::
+
+*Your answer:*
+
+---
+
+# Who / what is represented?
+
+::: {.callout-note}
+## Discuss
+State the unit of observation for **each** file in one sentence. (What does a
+single row correspond to?)
+:::
+
+*Your answer:*
+
+```{r}
+#| label: poll-coverage-2016
+polls_2016_raw |> summarise(
+  n_polls     = n(),
+  n_pollster  = n_distinct(pollster),
+  first_field = min(start_date, na.rm = TRUE),
+  last_field  = max(end_date,   na.rm = TRUE)
+)
+```
+
+```{r}
+#| label: poll-coverage-2012-todo
+#| eval: false
+# Your turn: produce the same coverage summary for the 2012 polls.
+```
+
+```{r}
+#| label: election-result-summary
+#| eval: false
+# Your turn: produce the same coverage summary for the 2012 polls.
+```
+
+::: {.callout-note}
+## Discuss
+What population is captured in a **poll** row versus a **results** row? Who may be *excluded*
+from each? For the polling datasets, distinguish the target population (who should be included in the survey) from the sampling frame (who is actually surveyed).
+:::
+
+*Your answer:*
+
+---
+
+# How were the variables measured?
+
+::: {.callout-note}
+## Discuss
+The candidate columns in the polls are reported **percentages, not counts**.
+Who chose the denominator? Are they percentages of all respondents, or of
+decided voters only? How would you tell?
+:::
+
+*Your answer:*
+
+# How much variability is there in variables measured?
+
+::: {.callout-note}
+## Discuss
+The columns `sample_subpopulation`, `mode`, `partisanship`, and `partisan_affiliation` describe characteristics of the polls. How much variation is in these columns? Are there any potential problems for statistical inference you should note?
+:::
+
+*Your answer:*
+
+```{r}
+#| label: measurement-meta
+polls_2016_raw |> count(sample_subpopulation, sort = TRUE)
+```
+
+---
+
+# What procedures were followed during measurement?
+
+::: {.callout-note}
+## Discuss
+Polls are weighted and adjusted by each pollster using (mostly) undisclosed procedures.
+What does the polling dataset tell you about the polling procedures? What decisions/rules were likely to be undisclosed?
+How might this affect subsequent analysis?
+:::
+
+*Your answer:*
+
+---
+
+# Temporal and spatial variation
+
+The time recording in the polling data is arbitary. It is more informative define a variable that counts down to the election date, as follows.
+
+```{r}
+#| label: time-to-election
+polls_2016 <- polls_2016_raw |>
+  mutate(
+    start_date = as.Date(start_date),
+    end_date   = as.Date(end_date),
+    days_to_election = as.integer(election_day["2016"] - end_date)
+  )
+```
+
+```{r}
+#| label: time-plot
+#| fig-cap: "Temporal distribution of polling effort, 2016."
+polls_2016 |>
+  ggplot(aes(days_to_election)) +
+  geom_histogram(binwidth = 7) +
+  scale_x_reverse() +
+  labs(x = "Days to election (binned by week)", y = "Number of polls")
+```
+
+```{r}
+#| label: space-coverage-todo
+#| eval: false
+# Your turn: the state is encoded inside `poll_info`
+# (e.g. "2016-washington-d-c-president-..."). If you haven't already, extract it into a `state` and `year` columns
+# (try stringr::str_extract), then:
+# polls_2016 |> count(state, sort = TRUE) |> print(n = Inf)
+```
+
+::: {.callout-note}
+## Discuss
+Is polling effort uniform over time? Which states are heavily polled and which
+are barely polled — is that random, or related to competitiveness? What does it
+imply for any nationwide statement? Do your conclusions hold for 2012 as well?
+:::
+
+*Your answer:*
+
+---
+
+# Cleaning, tidying, and combining
+
+::: {.callout-note}
+## Discuss
+The 2012 and 2016 poll files have **different candidate columns** (Obama/Romney
+vs Trump/Clinton/Johnson/McMullin) and different column orders. To analyse them
+together, reshape to a tidy long form: one row per (poll, candidate). Why is
+long form easier to combine and model than the wide form supplied?
+:::
+
+*Your answer:*
+
+```{r}
+#| label: reshape-2016
+#| eval: false # change to true
+candidate_cols_2016 <- c("Trump", "Clinton", "Johnson",
+                         "McMullin", "Other", "Undecided")
+
+polls_2016_long <- polls_2016 |>
+  pivot_longer(cols = all_of(candidate_cols_2016),
+               names_to = "candidate", values_to = "pct")
+
+glimpse(polls_2016_long)
+```
+
+```{r}
+#| label: reshape-bind-todo
+#| eval: false
+# Your turn:
+# 1. Build polls_2012_long the same way (candidate cols: Obama, Romney,
+#    Other, Undecided).
+# 2. Make sure there is a `year` column in each, then bind_rows() into one `polls_long`.
+# 3. Decide how to treat candidates present in one year but not the other.
+```
+
+---
+
+# Missingness — what is missing, and how is it recorded?
+
+Analyse the missingness in the combined polling dataset.
+
+::: {.callout-note}
+## Discuss
+- Is missing `Undecided` a true zero (nobody undecided) or an unknown (not
+  reported)? How would you check, and why does it matter?
+- A negative `sample_size` is impossible — what value is being used as a
+  sentinel for "unknown"? What happens to your means/weights if you leave it in?
+- What non-numeric entries appear in `Other`, and what will you do with them?
+- For each affected variable: is it MCAR, MAR, or MNAR as far as you can tell,
+  and will you drop, recode, impute, or model around it? Every fix lives in
+  code, not in the raw file.
+:::
+
+*Your answer:*
+
+---
+
+# Bias — who/what is over- or under-represented?
+
+```{r}
+#| label: bias-pollster
+polls_2016_raw |> count(pollster, sort = TRUE) |> head(15)
+```
+
+
+::: {.callout-note}
+## Discuss
+- **Coverage:** are the polls a representative sample of *states*, or
+  concentrated on a few?
+- **Pollster concentration:** if a few firms dominate the rows, whose house
+  methods are over-weighted, and how might you account for it (grouping,
+  weighting, a pollster effect)?
+- **Partisanship:** do partisan-sponsored polls differ systematically? Nuisance
+  to remove, or variable to study?
+- **Selection:** the data is what someone *chose* to collect (which states,
+  which weeks). Name one conclusion this selection could distort.
+:::
+
+*Your answer:*
+
+---
+
+# Wrangling data
+
+This `.qmd` file can serve as a place to experiment with data cleaning and exploration. You can add/change it in future forums and when working on the EDA Report assessment.
+
+For clarity and reproducibility you should create a master `poll-cleaning.R` script which starts with the raw data files and creates the cleaned, combined versions of the datasets you will perform EDA on. The code in this file serves as a starting point for this master cleaning script. 
+
+The basic structure of the master cleaning script should be as follows:
+
+```{r}
+#| label: read-clean-combine-write
+#| eval: false
+
+# load packages
+library(...)
+
+# set up directories
+raw_data_dir <- here(...)
+clean_data_dir <- here(...)
+
+# read in raw data
+raw_data <- read_csv(raw_data_dir...)
+
+# clean datasets
+clean_data <- raw_data |> mutate(...)
+
+# combine datasets as required
+combinded_data <- bind_rows(...)
+# save datasets
+write_csv(clean_data_dir...)
+```
+
+All subsequent EDA and analysis should use the cleaned data.
+This document serves as a record of the cleaning and EDA you have tried (but not necessarily included in your report).
