@@ -2,3 +2,10 @@
 .Rhistory
 .RData
 .Ruserdata
+*.Rproj
+# Quarto rendering artifacts
+*_files/
+*_cache/
+
+# Rendered output
+*.html
