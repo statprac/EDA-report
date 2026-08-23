@@ -41,6 +41,7 @@ library(glue)        # easy string manipulation
 
 raw_dir   <- here("data", "raw")
 clean_dir <- here("data", "clean")
+dir.create(clean_dir, recursive = TRUE, showWarnings = FALSE)
 
 # Election day = first Tuesday after the first Monday in November.
 election_day <- c("2012" = as.Date("2012-11-06"),
@@ -61,11 +62,22 @@ Before interrogating the data directly, read the data information page and provi
 For **each** of the `.csv` three files, record: who produced it and from
 what underlying source; what licence governs it and what that obliges you to do;
 and whether it is raw or already processed, and by whom.
+1. state_polls_2012.csv and state_polls_2016.csv
+
+- Originally from HuffPost Pollster, which aggregated US public opinion polls.
+- Accessed through the R package pollstR.
+- These are processed/compiled polling data, not raw individual survey responses.
+- Polling data licence: CC BY-NC-SA 3.0 -> we need to give attribution and follow the non-commercial/share-alike conditions.
+- pollstR itself uses GPL-2.0 — this applies to the software, not the polling data.
 
 Also make notes of any irregularities or nuances in the data you may need to be careful with during analysis.
+- different pollsters used different methods, samples and weighting procedures.
+
+2. 1976-2024-president.csv
+- Contains state-level official presidential election results and follows the MIT Election Data and Science Lab dataset structure. MIT describes its presidential dataset as state-level election returns.
+- It is already processed and standardised
+- The older 1976–2020 release is associated with the MIT Election Data and Science Lab dataset; because our file now includes 2024, we should confirm the current licence/version before final submission rather than assume the old documentation fully applies.
 :::
-
-
 
 ::: {.callout-note}
 ## Discuss
@@ -73,7 +85,10 @@ The codebook is titled 1976–2020 but the data file runs to 2024. What are the
 implications of documentation lagging the data?
 :::
 
-*Your answer:*
+- The documentation is older than the dataset.
+- Some 2024 values, categories or coding rules may not be documented.
+- We should check 2024 separately before assuming the old codebook applies.
+- Mention this as a documentation/reproducibility limitation in the report.
 
 ---
 
@@ -83,9 +98,11 @@ implications of documentation lagging the data?
 #| label: load
 #| message: false
 polls_2016_raw <- read_csv(glue("{raw_dir}/state_polls_2016.csv"))
+polls_2012_raw <- read_csv(glue("{raw_dir}/state_polls_2012.csv"))
+result_1976_2024_raw <- read_csv(glue("{raw_dir}/1976-2024-president.csv"))
 
 glimpse(polls_2016_raw)
-
+glimpse(polls_2012_raw)
 ```
 
 ::: {.callout-note}
@@ -95,11 +112,39 @@ What does that tell you about the contents of the column?
 Are there any columns that should be cleaned further? If so, what needs to be done?
 :::
 
-*Your answer:*
+- "Other" column is the main problem: it contains numbers and text such as "Not included in poll", so it is read as text.
+-> Convert valid values in "Other" to numeric and change "Not included in poll" to NA.
+- sample_size contains -1, which is impossible as a real sample size → treat it as missing.
+- Make sure start_date and end_date are proper Date variables.
+- Extract year and state from poll_info.
+- Do not treat repeated poll_ids automatically as duplicate rows, one poll ID can contain results for several states.
+```{r}
+# Repeated poll_id values are not automatically duplicates because the same poll
+# can report results for more than one state. Check exact duplicate rows instead.
+tibble(
+  dataset = c("2012", "2016"),
+  exact_duplicate_rows = c(
+    sum(duplicated(polls_2012_raw)),
+    sum(duplicated(polls_2016_raw))
+  ),
+  unique_poll_ids = c(
+    n_distinct(polls_2012_raw$poll_id),
+    n_distinct(polls_2016_raw$poll_id)
+  )
+)
+```
 
 ---
 
 # Who / what is represented?
+1. Poll rows
+- Target population can be Likely Voters, Registered Voters, or Adults.
+- Actual respondents depend on each pollster's sampling frame and survey method.
+- People who cannot be reached by that survey method or do not respond may be excluded.
+
+2. Results rows
+- Represent actual recorded votes, not opinion poll respondents.
+- People who were eligible but did not vote are not represented.
 
 ::: {.callout-note}
 ## Discuss
@@ -107,7 +152,14 @@ State the unit of observation for **each** file in one sentence. (What does a
 single row correspond to?)
 :::
 
-*Your answer:*
+2012 polling file & 2016 polling file
+- One row = one state-level poll result, for a pollster × field period × sample population.
+
+Election results file
+- One row = one candidate/party result in one state in one election year.
+- candidatevotes = votes for that candidate.
+- totalvotes = total votes in that state/year.
+
 
 ```{r}
 #| label: poll-coverage-2016
@@ -123,12 +175,23 @@ polls_2016_raw |> summarise(
 #| label: poll-coverage-2012-todo
 #| eval: false
 # Your turn: produce the same coverage summary for the 2012 polls.
+polls_2012_raw |> summarise(
+  n_polls     = n(),
+  n_pollster  = n_distinct(pollster),
+  first_field = min(start_date, na.rm = TRUE),
+  last_field  = max(end_date,   na.rm = TRUE)
+)
 ```
 
 ```{r}
 #| label: election-result-summary
 #| eval: false
-# Your turn: produce the same coverage summary for the 2012 polls.
+result_1976_2024_raw |> summarise(
+  n_results     = n(),
+  n_state  = n_distinct(state),
+  first_field = min(year, na.rm = TRUE),
+  last_field  = max(year,   na.rm = TRUE)
+)
 ```
 
 ::: {.callout-note}
@@ -150,7 +213,10 @@ Who chose the denominator? Are they percentages of all respondents, or of
 decided voters only? How would you tell?
 :::
 
-*Your answer:*
+- Candidate columns are percentages, not numbers of people.
+- The denominator was determined by each pollster.
+- The data suggest percentages are usually based on all respondents, because candidate support + undecided + other often adds to around 100%.
+- We should check the original poll methodology before assuming every poll uses exactly the same denominator.
 
 # How much variability is there in variables measured?
 
@@ -159,46 +225,146 @@ decided voters only? How would you tell?
 The columns `sample_subpopulation`, `mode`, `partisanship`, and `partisan_affiliation` describe characteristics of the polls. How much variation is in these columns? Are there any potential problems for statistical inference you should note?
 :::
 
-*Your answer:*
+Sample population
+- 2012: mostly Likely Voters — 967/1,135.
+- 2016: mostly Likely Voters — 1,088/1,303.
+- Very few polls use Adults.
+Survey mode
+- 2012: mainly Live Phone and Automated Phone.
+- 2016: Internet became the most common method, followed by Live Phone.
+Partisanship
+- Most polls are Nonpartisan: 2012: 823, 2016: 1,087
+- Some are pollster- or sponsor-partisan.
+Statistical issue
+- Different populations, modes and pollsters may produce systematically different results.
+- So observations are not necessarily directly comparable or independent.
 
 ```{r}
 #| label: measurement-meta
+polls_2012_raw |> count(sample_subpopulation, sort = TRUE)
 polls_2016_raw |> count(sample_subpopulation, sort = TRUE)
+
 ```
 
 ---
 
 # What procedures were followed during measurement?
+- Pollster
+- survey dates
+- sample size
+- target population
+- survey mode
+- partisanship
 
 ::: {.callout-note}
 ## Discuss
 Polls are weighted and adjusted by each pollster using (mostly) undisclosed procedures.
 What does the polling dataset tell you about the polling procedures? What decisions/rules were likely to be undisclosed?
 How might this affect subsequent analysis?
+
 :::
 
-*Your answer:*
+Undisclosed procedures:
+- Exact sampling procedure
+- Weighting method
+- Likely-voter model
+- Question wording/order
+- How non-response was adjusted
+- How undecided voters were handled
 
+How might this affect subsequent analysis?
+
+- Two polls can produce different results because of their methodology, not only because voter opinion changed.
+- Pollster/mode effects may need to be controlled for in later analysis.
 ---
 
 # Temporal and spatial variation
 
-The time recording in the polling data is arbitary. It is more informative define a variable that counts down to the election date, as follows.
+The time recording in the polling data is arbitrary. It is more informative define a variable that counts down to the election date, as follows.
 
 ```{r}
-#| label: time-to-election
-polls_2016 <- polls_2016_raw |>
+#| label: clean-polls-wide
+
+candidate_cols_2012 <- c("Obama", "Romney", "Undecided", "Other")
+candidate_cols_2016 <- c("Trump", "Clinton", "Johnson",
+                         "McMullin", "Other", "Undecided")
+
+# Keep one CLEAN WIDE dataset per election.
+# This preserves one row per state-poll and is the safest format for
+# poll-count / coverage analyses.
+
+polls_2012_clean <- polls_2012_raw |>
+  extract(
+    poll_info,
+    into = c("year", "state", "contest"),
+    regex = "^(\\d{4})-(.*?)-(president|presidential-general-election)-.*$",
+    remove = FALSE
+  ) |>
   mutate(
+    year = as.integer(year),
+    state = str_replace(state, "^washington-d-c$", "washington-dc"),
     start_date = as.Date(start_date),
-    end_date   = as.Date(end_date),
-    days_to_election = as.integer(election_day["2016"] - end_date)
-  )
+    end_date = as.Date(end_date),
+    days_to_election = as.integer(election_day["2012"] - end_date),
+
+    # poll_id is an identifier, not a quantity.
+    poll_id = as.character(poll_id),
+
+    # -1 is a sentinel for an unknown sample size.
+    sample_size = as.integer(na_if(sample_size, -1)),
+
+    # "Not included in poll" is structural missingness, not 0%.
+    Other = as.numeric(na_if(Other, "Not included in poll")),
+
+    # Only recode NA to "None" where affiliation is genuinely not applicable.
+    partisan_affiliation = case_when(
+      partisanship == "Nonpartisan" & is.na(partisan_affiliation) ~ "None",
+      TRUE ~ partisan_affiliation
+    ),
+
+    # poll_id can be repeated across states, so create a state-poll key.
+    poll_key = str_c(year, poll_id, state, sep = "_")
+  ) |>
+  select(-contest)
+
+polls_2016_clean <- polls_2016_raw |>
+  extract(
+    poll_info,
+    into = c("year", "state", "contest"),
+    regex = "^(\\d{4})-(.*?)-(president|presidential-general-election)-.*$",
+    remove = FALSE
+  ) |>
+  mutate(
+    year = as.integer(year),
+
+    # Make Washington DC consistent with the 2012 poll file.
+    state = str_replace(state, "^washington-d-c$", "washington-dc"),
+
+    start_date = as.Date(start_date),
+    end_date = as.Date(end_date),
+    days_to_election = as.integer(election_day["2016"] - end_date),
+
+    poll_id = as.character(poll_id),
+    sample_size = as.integer(na_if(sample_size, -1)),
+    Other = as.numeric(na_if(Other, "Not included in poll")),
+
+    partisan_affiliation = case_when(
+      partisanship == "Nonpartisan" & is.na(partisan_affiliation) ~ "None",
+      TRUE ~ partisan_affiliation
+    ),
+
+    poll_key = str_c(year, poll_id, state, sep = "_")
+  ) |>
+  select(-contest)
+
+glimpse(polls_2012_clean)
+glimpse(polls_2016_clean)
 ```
 
 ```{r}
 #| label: time-plot
 #| fig-cap: "Temporal distribution of polling effort, 2016."
-polls_2016 |>
+polls_2016_clean |>
   ggplot(aes(days_to_election)) +
   geom_histogram(binwidth = 7) +
   scale_x_reverse() +
@@ -206,12 +372,12 @@ polls_2016 |>
 ```
 
 ```{r}
-#| label: space-coverage-todo
-#| eval: false
-# Your turn: the state is encoded inside `poll_info`
-# (e.g. "2016-washington-d-c-president-..."). If you haven't already, extract it into a `state` and `year` columns
-# (try stringr::str_extract), then:
-# polls_2016 |> count(state, sort = TRUE) |> print(n = Inf)
+#| label: space-coverage
+bind_rows(
+  polls_2012_clean |> count(state, name = "n_polls") |> mutate(year = 2012),
+  polls_2016_clean |> count(state, name = "n_polls") |> mutate(year = 2016)
+) |>
+  arrange(year, desc(n_polls))
 ```
 
 ::: {.callout-note}
@@ -235,29 +401,122 @@ together, reshape to a tidy long form: one row per (poll, candidate). Why is
 long form easier to combine and model than the wide form supplied?
 :::
 
-*Your answer:*
+- Easier to group/filter by candidate and year.
+- Easier for graphs and statistical models.
+- Candidates who did not run in a particular year can simply be absent rather than needing separate columns.
 
 ```{r}
-#| label: reshape-2016
-#| eval: false # change to true
-candidate_cols_2016 <- c("Trump", "Clinton", "Johnson",
-                         "McMullin", "Other", "Undecided")
+#| label: reshape-polls
 
-polls_2016_long <- polls_2016 |>
-  pivot_longer(cols = all_of(candidate_cols_2016),
-               names_to = "candidate", values_to = "pct")
+polls_2012_long <- polls_2012_clean |>
+  pivot_longer(
+    cols = all_of(candidate_cols_2012),
+    names_to = "candidate",
+    values_to = "pct"
+  ) |>
+  mutate(
+    party_group = case_when(
+      candidate == "Obama" ~ "Democrat",
+      candidate == "Romney" ~ "Republican",
+      candidate == "Undecided" ~ "Undecided",
+      TRUE ~ "Other"
+    )
+  )
 
+polls_2016_long <- polls_2016_clean |>
+  pivot_longer(
+    cols = all_of(candidate_cols_2016),
+    names_to = "candidate",
+    values_to = "pct"
+  ) |>
+  mutate(
+    party_group = case_when(
+      candidate == "Clinton" ~ "Democrat",
+      candidate == "Trump" ~ "Republican",
+      candidate == "Undecided" ~ "Undecided",
+      TRUE ~ "Other"
+    )
+  )
+
+glimpse(polls_2012_long)
 glimpse(polls_2016_long)
 ```
 
+Before combining, validate the cleaned files. Do not remove a row simply because
+a `poll_id` is repeated: the same poll can contain results for multiple states.
+
 ```{r}
-#| label: reshape-bind-todo
-#| eval: false
-# Your turn:
-# 1. Build polls_2012_long the same way (candidate cols: Obama, Romney,
-#    Other, Undecided).
-# 2. Make sure there is a `year` column in each, then bind_rows() into one `polls_long`.
-# 3. Decide how to treat candidates present in one year but not the other.
+#| label: validate-before-bind
+
+# 1. Did state extraction fail anywhere?
+tibble(
+  dataset = c("2012", "2016"),
+  failed_state_extraction = c(
+    sum(is.na(polls_2012_clean$state)),
+    sum(is.na(polls_2016_clean$state))
+  )
+)
+
+# 2. Is each state-poll key unique in the WIDE data?
+bind_rows(
+  polls_2012_clean |> count(poll_key) |> filter(n > 1) |> mutate(year = 2012),
+  polls_2016_clean |> count(poll_key) |> filter(n > 1) |> mutate(year = 2016)
+)
+
+# 3. Are any reported candidate percentages outside the possible 0-100 range?
+bind_rows(
+  polls_2012_long |>
+    filter(!is.na(pct), !between(pct, 0, 100)) |>
+    mutate(source_year = 2012),
+  polls_2016_long |>
+    filter(!is.na(pct), !between(pct, 0, 100)) |>
+    mutate(source_year = 2016)
+)
+
+# 4. Flag polls whose reported response categories sum well above 100%.
+# Allow a small tolerance for rounding; investigate rather than auto-delete.
+bind_rows(
+  polls_2012_clean |>
+    mutate(
+      reported_total = rowSums(
+        across(all_of(candidate_cols_2012)),
+        na.rm = TRUE
+      )
+    ) |>
+    filter(reported_total > 102) |>
+    select(year, poll_key, poll_info, reported_total),
+  polls_2016_clean |>
+    mutate(
+      reported_total = rowSums(
+        across(all_of(candidate_cols_2016)),
+        na.rm = TRUE
+      )
+    ) |>
+    filter(reported_total > 102) |>
+    select(year, poll_key, poll_info, reported_total)
+)
+```
+
+Now combine the datasets. Keep both versions:
+
+- `polls_clean`: one row per state-poll, for polling effort/coverage analyses.
+- `polls_long`: one row per state-poll-candidate, for candidate/support analyses.
+
+```{r}
+#| label: combine-polls
+
+polls_clean <- bind_rows(
+  polls_2012_clean,
+  polls_2016_clean
+)
+
+polls_long <- bind_rows(
+  polls_2012_long,
+  polls_2016_long
+)
+
+glimpse(polls_clean)
+glimpse(polls_long)
 ```
 
 ---
@@ -278,7 +537,71 @@ Analyse the missingness in the combined polling dataset.
   code, not in the raw file.
 :::
 
-*Your answer:*
+Undecided
+- Missing in:
++ 2012: 132 rows
++ 2016: 128 rows
+- More likely it was not reported or not included.
+- Likely MAR / related to poll design
+- Keep as NA; do not replace with zero automatically.
+
+sample_size
+- Both 2012 and 2016 contain one -1 value.
+- -1 is a sentinel for an unknown sample size. Recode -1 → NA.
+- Leaving it as -1 would distort means and especially weighting calculations
+
+Other
+- "Not included in poll" occurs:
++ 2012: 567 times
++ 2016: 507 times
+- Recode this to NA, not zero.
+- This is mostly structural / poll-design missingness.
+
+Johnson and McMullin
+- Johnson missing: 975/1,303 rows.
+- McMullin missing: 1,286/1,303 rows.
+- Usually means the candidate was not included in that poll, not that support was zero.
+- Treat as structural missingness.
+
+partisan_affiliation
+- Missing for nonpartisan polls.
+- This is not really missing information; it means “not applicable”.
+- Could recode to "None" for analysis.
+```{r}
+# Check that nonpartisan polls are represented explicitly as "None".
+polls_clean |>
+  count(year, partisanship, partisan_affiliation, sort = TRUE)
+```
+
+
+General rule
+- Do not replace all NAs with zero.
+- First identify why the value is missing.
+
+```{r}
+#| label: missingness-audit
+
+# Missing candidate percentages by year and candidate.
+polls_long |>
+  group_by(year, candidate) |>
+  summarise(
+    n_rows = n(),
+    n_missing = sum(is.na(pct)),
+    pct_missing = 100 * mean(is.na(pct)),
+    .groups = "drop"
+  ) |>
+  arrange(year, desc(pct_missing))
+
+# Check missingness in the main poll-level fields used later.
+polls_clean |>
+  summarise(
+    across(
+      c(state, start_date, end_date, sample_size,
+        mode, sample_subpopulation, partisanship, partisan_affiliation),
+      ~ sum(is.na(.x))
+    )
+  )
+```
 
 ---
 
@@ -303,7 +626,30 @@ polls_2016_raw |> count(pollster, sort = TRUE) |> head(15)
   which weeks). Name one conclusion this selection could distort.
 :::
 
-*Your answer:*
+Coverage bias
+- States are not equally represented.
+- Battleground states have many more polls.
+
+Pollster concentration
+- A few pollsters contribute many observations.
+- Example:
++ 2012: Rasmussen 138, PPP 128.
++ 2016: Ipsos/Reuters 167, SurveyMonkey 152.
+- Their particular methods could therefore have too much influence.
+- We could include a pollster effect, group by pollster, or consider weighting.
+
+Partisan bias
+- Some polls are sponsored or conducted by partisan organisations.
+- We should test whether these polls systematically favour one candidate.
+- partisanship can therefore be an explanatory variable, not simply something to delete.
+
+Selection bias
+- Pollsters choose which states and when to poll.
+- For example, a simple average of all rows could make national opinion look more like opinion in heavily polled swing states.
+
+Overall
+- The polling dataset is not a random sample of states, dates, or pollsters.
+- So a simple average across all rows could be misleading.
 
 ---
 
