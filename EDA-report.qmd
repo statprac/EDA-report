@@ -18,6 +18,7 @@ execute:
   echo: true
 ---
 *Introduction*
+Through this report, three different datasets will be cleaned and explored. The datasets include polling data in the years 2016 and 2012 along with election results from the 1976 to 2024. The data was sourced from 
 
 ```{r}
 # Loading packages
@@ -30,7 +31,7 @@ pres_df    <- read_csv("data/raw/1976-2024-president.csv")
 polls_2012 <- read_csv("data/raw/state_polls_2012.csv")
 polls_2016 <- read_csv("data/raw/state_polls_2016.csv")
 
-pres_df
+polls_2016
 
 ```
 
