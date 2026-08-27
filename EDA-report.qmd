@@ -18,7 +18,6 @@ execute:
   echo: true
 ---
 *Introduction*
-Through this report, three different datasets will be cleaned and explored. The datasets include polling data in the years 2016 and 2012 along with election results from the 1976 to 2024. The data was sourced from 
 
 ```{r}
 # Loading packages
@@ -31,7 +30,7 @@ pres_df    <- read_csv("data/raw/1976-2024-president.csv")
 polls_2012 <- read_csv("data/raw/state_polls_2012.csv")
 polls_2016 <- read_csv("data/raw/state_polls_2016.csv")
 
-polls_2016
+pres_df
 
 ```
 
@@ -219,6 +218,13 @@ p2 <- ggplot(
 
 print(p2)
 
+Graph description
+The bar chart compares the mean absolute polling error across six survey modes in the 2012 and 2016 U.S. presidential elections. A lower mean absolute error indicates that the polling estimates were closer to the actual election results.
 
+Trend
+There is a clear difference in polling accuracy across survey modes. Automated Phone polls had the lowest mean absolute error at 2.94 percentage points, making them the most accurate mode in this dataset. Internet, IVR/Online, and IVR/Live Phone polls produced similar errors of around 4.1 percentage points. Live Phone polls had a slightly higher error of 4.63 percentage points, while Live Phone/Online polls had the largest error at 6.20 percentage points.
+
+Outline of the graph
+Overall, polling accuracy appears to vary by survey mode. Automated Phone polling produced estimates closest to the actual election results, whereas Live Phone/Online polling showed the greatest difference from the final results. However, the number of polls differs across survey modes, which may partly explain the differences observed in the graph.
 
 
