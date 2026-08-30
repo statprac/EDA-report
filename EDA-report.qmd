@@ -45,6 +45,7 @@ All three of the datasets conatin missing data which can limit the use of the da
 The pollstR package has been archived since 2020 and the Huffpost Pollster API no longer exists, amplifying the need to keep the raw datasets in the repository as the data can no longer be accessed or reaquired through the original source. This garauntees the reproducibility of the code.
 
 ## Data Cleaning
+*Introduction*
 
 ```{r}
 # Loading packages
@@ -57,7 +58,7 @@ pres_df    <- read_csv("data/raw/1976-2024-president.csv")
 polls_2012 <- read_csv("data/raw/state_polls_2012.csv")
 polls_2016 <- read_csv("data/raw/state_polls_2016.csv")
 
-polls_2016
+pres_df
 
 ```
 
@@ -286,5 +287,50 @@ Figure X: Density plot describing the desity of polling data collected in relati
 *Deed - Attribution-NonCommercial-ShareAlike 3.0 Unported - Creative Commons*. (2026). Creativecommons.Org. https://creativecommons.org/licenses/by-nc-sa/3.0/deed.en
 
 *GNU General Public License version 2*. (2006, October 31). Open Source Initiative. https://opensource.org/license/gpl-2.0
+p2 <- ggplot(
+  mode_accuracy,
+  aes(
+    x = mean_abs_error,
+    y = reorder(mode, mean_abs_error)
+  )
+) +
+  geom_col(width = 0.7) +
+  geom_text(
+    aes(label = round(mean_abs_error, 2)),
+    hjust = -0.2,
+    size = 3.5
+  ) +
+  labs(
+    title = "Polling Accuracy by Survey Mode",
+    subtitle = "Lower error indicates estimates closer to actual election results",
+    x = "Mean Absolute Polling Error (percentage points)",
+    y = "Survey Mode"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(
+      size = 15,
+      face = "bold"
+    ),
+    plot.subtitle = element_text(
+      size = 10
+    ),
+    panel.grid.major.y = element_blank()
+  ) +
+  expand_limits(
+    x = max(mode_accuracy$mean_abs_error) * 1.12
+  )
+
+print(p2)
+
+Graph description
+The bar chart compares the mean absolute polling error across six survey modes in the 2012 and 2016 U.S. presidential elections. A lower mean absolute error indicates that the polling estimates were closer to the actual election results.
+
+Trend
+There is a clear difference in polling accuracy across survey modes. Automated Phone polls had the lowest mean absolute error at 2.94 percentage points, making them the most accurate mode in this dataset. Internet, IVR/Online, and IVR/Live Phone polls produced similar errors of around 4.1 percentage points. Live Phone polls had a slightly higher error of 4.63 percentage points, while Live Phone/Online polls had the largest error at 6.20 percentage points.
+
+Outline of the graph
+Overall, polling accuracy appears to vary by survey mode. Automated Phone polling produced estimates closest to the actual election results, whereas Live Phone/Online polling showed the greatest difference from the final results. However, the number of polls differs across survey modes, which may partly explain the differences observed in the graph.
+
 
 MIT Election Data and Science Lab. 2017. “U.S. President 1976–2024.” Harvard Dataverse. [**https://doi.org/10.7910/DVN/42MVDXLinks to an external site.**](https://doi.org/10.7910/DVN/42MVDX). Data retrieved: 27th July 2026. 
