@@ -1,0 +1,21 @@
+---
+title: "Exploratory Data Analysis — Presidential Polling and Results"
+subtitle: "Corner Team"
+author: "Isobel Cusack, "
+date: today
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    number-sections: true
+    code-fold: false
+    embed-resources: false
+    theme: cosmo
+
+execute:
+  warning: false
+  message: false
+  echo: true
+---
+
+
