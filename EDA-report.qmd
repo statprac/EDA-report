@@ -1,7 +1,7 @@
 ---
 title: "Exploratory Data Analysis — Presidential Polling and Results"
 subtitle: "Corner Team"
-author: "Isobel Cusack, "
+author: "Isobel Cusack, Caitlin Knowles, Linh Chi Nguyen, Manjun Xu"
 date: today
 format:
   html:
@@ -18,33 +18,35 @@ execute:
   echo: true
 ---
 
-# Exploratory Data Analysis - Presedential Polling and Results
+# Exploratory Data Analysis - Presidential Polling and Results
 
 ## **Introduction**
 
-This report supplies an exporatory data analysis that aims to clean and explore data surrounding pre-election polling and historical election results of the United States. Trends in pre electoral polling combined with voting results will be uncovered using data summaries and visualisations with the goal of identifying plausible research questions that could be further explored. The scope of the report is to explore historcal election results at a state level to identify shifts in major party support over time and understand pre-election polling characteristics and how they impact the accuracy of predicting election results.
+This report supplies an exploratory data analysis that aims to clean and explore data surrounding pre-election polling and historical election results of the United States. Trends in pre-1electoral polling combined with voting results will be uncovered using data summaries and visualisations with the goal of identifying plausible research questions that could be further explored. The scope of the report is to explore historical election results at a state level to identify shifts in major party support over time and understand pre-election polling characteristics and how they impact the accuracy of predicting election results.
 
-### **Overveiw of Datasets**
+### **Overview of Datasets**
 
-The following analysis will be perfromed using three datasets containing presidential polling and election result data:
+The following analysis will be performed using three datasets containing presidential polling and election result data:
 
-The first two datasets (State-Level Pre-Election Polls (2012) and State-Level Pre-Election Polls (2016)) contain pre-election polling data from the 2012 (Obama/Romney) and 2016 (Trump/Clinton) US elections. The dataset contains over 1000 entries each and 14 and 16 varaibles respectively. Some of the variables include, method of polling, sample size of the poll, support for each candidate and number of undecided voters. The datasets contains agregated polling data from a range of sources collated under the Huffington Post Pollster (pollstR package no longer available) as a part of rOpenGov project. The data was collected under the Creative Commons Attribution-NonCommercial-ShareAlike 3.0 Unported License and the pollstR package was released uder the GPL-2. These licenses require the user to give appropraite credit, not commercialise the material and distribute any contributions under the same lisence as the original with no additional restrictions.
+The first two datasets (State-Level Pre-Election Polls (2012) and State-Level Pre-Election Polls (2016)) contain pre-election polling data from the 2012 (Obama/Romney) and 2016 (Trump/Clinton) US elections. The dataset contains over 1000 entries each and 14 and 16 variables, respectively. Some of the variables include method of polling, sample size of the poll, support for each candidate and number of undecided voters. The datasets contain aggregated polling data from a range of sources collated under the Huffington Post Pollster (pollstR package no longer available) as a part of the rOpenGov project. The data was collected under the Creative Commons Attribution-NonCommercial-ShareAlike 3.0 Unported License, and the pollstR package was released under the GPL-2. These licenses require the user to give appropriate credit, not commercialise the material and distribute any contributions under the same licence as the original with no additional restrictions.
 
-The other data set (Certified Presidential Returns 1976 - 2024) conatins almost 50 years of state level election results. The dataset contains 4822 rows and 15 columns. it includes variables such as the state and year, total state votes, party and candidate. This dataset was obtained from the MIT Election Data and Science Lab (MEDSL) through the Harvard Dataverse. The data was released in 2017 under the public domain dedication (CCO 1.0) which has no requirements other than scholarly citation (see references).
+The other dataset (Certified Presidential Returns 1976 - 2024) contains almost 50 years of state-level election results. The dataset contains 4822 rows and 15 columns. It includes variables such as the state and year, total state votes, party and candidate. This dataset was obtained from the MIT Election Data and Science Lab (MEDSL) through the Harvard Dataverse. The data was released in 2017 under the public domain dedication (CCO 1.0), which has no requirements other than scholarly citation (see references).
 
-The three raw datasets have been included in the Github repository for reproducibility purposes.
+The three raw datasets have been included in the GitHub repository for reproducibility purposes.
 
 ### Limitations
 
 While completing this report, the following limitations must be considered:
 
-The code book for the 1976-2024 election results data is only updated until the year 2020. This means that changes in data collection, recording and formatting proceedures are not recorded for the most recent election results. Such issues can impact the reproducibility as there is no propper documentation of the proccesses used.
+The code book for the 1976-2024 election results data is only updated until the year 2020. This means that changes in data collection, recording and formatting procedures are not recorded for the most recent election results. Such issues can impact reproducibility as there is no proper documentation of the processes used.
 
-All three of the datasets conatin missing data which can limit the use of the datasets particularly is the missingness or errors cannot be resolved. the polling datasets contain sturctural missing values most prominently in third party votes. There is also missingness and inconsistent formatting in the election results dataset particularly in earlier election. Not all of these issues can be resolved through data cleaning meaning the exploration of data may not be an entirely accurate representation of polling and electoral result statistics.
+All three of the datasets contain missing data, which can limit the use of the datasets, particularly when the missingness or errors cannot be resolved. The polling datasets contain structural missing values, most prominently in third-party votes. There is also missingness and inconsistent formatting in the election results dataset, particularly in earlier elections. Not all of these issues can be resolved through data cleaning, meaning the exploration of data may not be an entirely accurate representation of polling and electoral result statistics.
 
-The pollstR package has been archived since 2020 and the Huffpost Pollster API no longer exists, amplifying the need to keep the raw datasets in the repository as the data can no longer be accessed or reaquired through the original source. This garauntees the reproducibility of the code.
+The pollstR package has been archived since 2020, and the HuffPost Pollster API no longer exists, amplifying the need to keep the raw datasets in the repository, as the data can no longer be accessed or reacquired through the original source. This guarantees the reproducibility of the code.
 
 ## Data Cleaning
+
+## Exploratory Data Analysis
 
 ```{r}
 # Loading packages
@@ -53,13 +55,12 @@ library(lubridate)
 library(skimr)
 
 # Loading datasets
-pres_df    <- read_csv("data/raw/1976-2024-president.csv")
+pres_df <- read_csv("data/raw/1976-2024-president.csv")
 polls_combined_clean <- read.csv("data/clean/state_polls_combined_clean.csv")
 polls_2012_clean <- read_csv("data/clean/state_polls_2012_clean.csv")
 polls_2016_clean <- read.csv("data/clean/state_polls_2016_clean.csv")
 
 ```
-
 
 ```{r}
 # Cleaning president data (1976-2024-president)
@@ -67,9 +68,9 @@ pres_clean <- pres_df %>%
   select(-notes) # removes the column "notes" as every row conatins NA 
 
 party_trends <- pres_df %>%
-  # Replace missing values in party_simplified
+# Replace missing values in party_simplified
   mutate(party_simplified = ifelse(is.na(party_simplified), "OTHER", party_simplified)) %>%
-  # Calculate national total votes per year and candidate votes per party per year
+# Calculate national total votes per year and candidate votes per party per year
   group_by(year, party_simplified) %>%
   summarise(party_votes = sum(candidatevotes, na.rm = TRUE), .groups = "drop_last") %>%
   mutate(
@@ -77,19 +78,19 @@ party_trends <- pres_df %>%
     national_pct = (party_votes / total_year_votes) * 100
   ) %>%
   ungroup() %>%
-  # Lump parties into DEMOCRAT, REPUBLICAN, and OTHER
+ # Lump parties into Democrat, Republican, and Other
   mutate(
     party_simplified = case_when(
       party_simplified %in% c("DEMOCRAT", "REPUBLICAN") ~ party_simplified,
       TRUE ~ "OTHER"
     )
   ) %>%
-  # AGGREGATE AGAIN: Combine Libertarian % and Other % into a single OTHER value per year
+# Aggregate again: Combine Libertarian % and Other % into a single "other" value per year
   group_by(year, party_simplified) %>%
   summarise(national_pct = sum(national_pct), .groups = "drop")
 
-# 3. Create the plot
-p1 <- ggplot(party_trends, aes(x = year, y = national_pct, color = party_simplified, group = party_simplified)) +
+# Create the line plot
+ggplot(party_trends, aes(x = year, y = national_pct, color = party_simplified, group = party_simplified)) +
   geom_line(linewidth = 1) + 
   geom_point(size = 2.5) + 
   scale_color_manual(
@@ -98,62 +99,58 @@ p1 <- ggplot(party_trends, aes(x = year, y = national_pct, color = party_simplif
       "REPUBLICAN" = "#D9534F", 
       "OTHER" = "#777777"
     )
+# red and blue chosen as they usually correspod to the two major parties
   ) +
   scale_x_continuous(breaks = seq(1976, 2024, by = 8)) + 
-  labs(
+  labs( # Adding title and axis labels
     title = "U.S. Presidential Election Vote Share (1976–2024)",
-    x = "Election Year",                                         
-    y = "National Vote Percentage (%)",                           
-    color = "Party"                                              
-  ) +
+    x = "Election Year",                                      
+    y = "National Vote Percentage (%)",                       
+    color = "Party"                                              ) +
   theme_minimal()
-
-print(p1)
 ```
 
-Figure X: Line plot describing the support of each of the major parties from 1974 to 2024 US elections along with the less prominent parties (such as libertarian) grouped together. The percentage of suppport changes year to year showing no significant pattern. It can be observed that the margin of percentage support is reduced in more recent years.
-
+Line plot describing the support of each of the major parties from 1974 to 2024 US elections along with the less prominent parties (such as libertarian) grouped together. The percentage of support changes year to year, showing no significant pattern. It can be observed that the margin of percentage support is reduced in more recent years.
 
 ```{r}
-# Plot 4: Density plot comparing proportion of undecided voters in 2012 vs 2016
-p4 <- polls_combined_clean %>%
+# creating a density plot comparing proportion of undecided voters in 2012 vs 2016
+polls_combined_clean %>%
   mutate(
-    Year = case_when(
+    Year = case_when( # changing the year column to also include the two major candidates
       year == 2012 ~ "2012 (Obama/Romney)",
       year == 2016 ~ "2016 (Clinton/Trump)"
     )
   ) %>%ggplot(aes(x = Undecided, fill = Year) # Undecided % on X-axis, color fill grouped by election cycle
   ) +
-  geom_density(alpha = 0.5) + # Create smoothed density distribution curves with 50% opacity
+  geom_density(alpha = 0.5) + # Create smoothed density distribution curves
   scale_fill_manual(
-    values = c(
+    values = c( # using the same colours to reprent the major parties as done previously
       "2012 (Obama/Romney)" = "#2B5C8F", 
       "2016 (Clinton/Trump)" = "#E74C3C"
     )
   ) +
-  labs(
+  labs( # adding title and axis labels
     title = "Distribution of Undecided Voters: 2012 vs. 2016 Polls", # Add title
     x = "Undecided Percentage (%)",                                  # Label X-axis
     y = "Density",                                                   # Label Y-axis
     fill = "Election Cycle"                                          # Legend header title
   ) +
   theme_minimal()
-
-print(p4) # Display plot p4
 ```
 
-Figure X: Density plot showing the percentage of undecided voters in the 2012 and 2016 elections. There is an overall significantly lower percentage of undecided voters in the 2012 polls in comparison to the 2016 polls.
+Density plot showing the percentage of undecided voters in the 2012 and 2016 elections. There is an overall significantly lower percentage of undecided voters in the 2012 polls in comparison to the 2016 polls.
 
 ```{r}
-p4 <- polls_combined_clean %>%
+polls_combined_clean %>%
   mutate(
-    Year = case_when(
+    Year = case_when( # changing the year column to also include the two major candidates
       year == 2012 ~ "2012 (Obama/Romney)",
       year == 2016 ~ "2016 (Clinton/Trump)"
     )
   ) %>%
-  filter(!is.na(days_to_election)) %>%
-  filter(days_to_election <= 250) %>%
+  filter(!is.na(days_to_election)) %>% # Exlcuding NA inputs
+  filter(days_to_election <= 250) %>% # Only showing days 250 or less until the election date
+  # Creating density plot for density of polls conducted in relation to the number of dat left until the election date
   ggplot(aes(x = days_to_election, fill = Year)) +
   geom_density(alpha = 0.5) +
   scale_x_reverse() +
@@ -163,7 +160,7 @@ p4 <- polls_combined_clean %>%
       "2016 (Clinton/Trump)" = "#E74C3C"
     )
   ) +
-  labs(
+  labs( # Adding title and axis labels
     title = "Density of Polling Frequency over Time",
     x = "Days Remaining to Election Day",
     y = "Density of Polling Observations",
@@ -171,10 +168,11 @@ p4 <- polls_combined_clean %>%
   ) +
   theme_minimal()
 
-print(p4)
 ```
 
-Figure X: Density plot describing the desity of polling data collected in relation to the remaining days until the 2012 and 2016 election. Both years follow a similar trajectory of low amounts of polling at dates further from the election then a spike as election day approaches. The spike in polling in 2016 is more significant that 2012.
+Density plot describing the density of polling data collected in relation to the remaining days until the 2012 and 2016 elections. Both years follow a similar trajectory of low amounts of polling at dates further from the election, then a spike as election day approaches. The spike in polling in 2016 is more significant than in 2012.
+
+## Research Questions
 
 ## References
 
