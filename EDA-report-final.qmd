@@ -1,0 +1,428 @@
+---
+title: "Exploratory Data Analysis — Presidential Polling and Results"
+subtitle: "Corner Team"
+author: "Isobel Cusack, Caitlin Knowles, Linh Chi Nguyen, Manjun Xu"
+date: today
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    number-sections: true
+    code-fold: false
+    embed-resources: false
+    theme: cosmo
+
+execute:
+  warning: false
+  message: false
+  echo: true
+---
+
+## **1. Introduction**
+
+This report presents an exploratory data analysis of U.S. pre-election polling and historical presidential election results. Data summaries and visualisations are used to explore patterns in pre-election polling and election results and to identify research questions for further analysis. The report focuses on state-level electoral patterns and on how characteristics of pre-election polls are associated with polling accuracy.
+
+### **2. Overview of Datasets**
+
+The following analysis will be performed using three datasets containing presidential polling and election result data:
+
+The first two datasets (State-Level Pre-Election Polls (2012) and State-Level Pre-Election Polls (2016)) contain pre-election polling data from the 2012 (Obama/Romney) and 2016 (Trump/Clinton) US elections. Each row represents a poll conducted for a particular state. The dataset contains over 1000 entries each and 14 and 16 variables, respectively. Key variables include polling mode, sample size, candidate support percentages and the reported proportion of undecided voters. The datasets contain aggregated polling data from a range of sources collated under the Huffington Post Pollster (pollstR package no longer available) as a part of the rOpenGov project. The data was collected under the Creative Commons Attribution-NonCommercial-ShareAlike 3.0 Unported License, and the pollstR package was released under the GPL-2. These licenses require the user to give appropriate credit, not commercialise the material and distribute any contributions under the same licence as the original with no additional restrictions.
+
+The third dataset, Certified Presidential Returns 1976–2024, contains state-level presidential election results covering elections from 1976 to 2024. The dataset contains 4,822 candidate-party records and 15 variables. Each row records the votes received by a candidate under a particular party label within a state and election year. Key variables include election year, state, candidate, party, candidate votes and total votes. This dataset was obtained from the MIT Election Data and Science Lab (MEDSL) through the Harvard Dataverse. The data was released in 2017 under the public domain dedication (CCO 1.0), which has no requirements other than scholarly citation (see references).
+
+The three raw datasets have been included in the GitHub repository for reproducibility purposes.
+
+### **3. Limitations**
+
+While completing this report, the following limitations must be considered:
+
+The available codebook for the election results dataset is documented only through 2020. Therefore, any changes in variable definitions, recording practices or formatting for the 2024 election cannot be verified from the accompanying documentation. This primarily limits interpretation of the most recent records rather than the reproducibility of the analysis itself.
+
+All three datasets contain missing data or structurally unavailable values, which may limit particular comparisons when their meaning cannot be fully resolved. The polling datasets contain structural missingness, particularly for third-party candidate support and response categories that were not included in every poll. There is also missingness and inconsistent formatting in the election results dataset, particularly in earlier elections. Not all of these issues can be resolved through data cleaning, meaning the exploration of data may not be an entirely accurate representation of polling and electoral result statistics.
+
+The pollstR package has been archived and the original HuffPost Pollster API is no longer available. Retaining the raw polling datasets in the repository therefore supports reproducibility because the original source can no longer be queried directly.
+
+## ** 4. Data Cleaning**
+
+**4.1 Poll data cleaning**
+  
+The 2012 and 2016 polling datasets were cleaned using a fully reproducible R script. Election year and state were extracted from poll_info, state naming was standardised across years, and polling dates were converted to Date variables. We also created days_to_election to represent the timing of each poll relative to Election Day. poll_id was treated as an identifier rather than a quantitative variable, and a unique poll_key was created using year, poll ID and state.
+
+Invalid sentinel values in sample_size (-1) were recoded as missing. The Other response column contained the text "Not included in poll" as well as numeric percentages; these entries were recoded to NA before converting the variable to numeric.
+
+**4.2 Missingness and structural missingness**
+  
+Missing values were not automatically replaced with zero because their meanings differed across variables. For example, missing values for Other, Johnson and McMullin often indicate that the response category or candidate was not included in that poll, rather than zero support. Missing partisan_affiliation for nonpartisan polls was treated as not applicable and recorded as "None".
+
+**4.3 Combining 2012 and 2016 data**
+  
+  Candidate columns differed between 2012 and 2016, so each dataset was also reshaped into long format with one row per state-poll-candidate. Candidate names were additionally grouped into common categories such as Democrat, Republican, Undecided and Other. The cleaned datasets were then combined into both wide and long versions.
+
+**4.4 Cleaning limitations**
+  
+  Some structural missingness remains because not every poll reported the same candidates or response categories. A small number of polls also had reported response percentages summing to more than 100%; these were flagged for review rather than automatically altered. In addition, state coverage, pollster representation and polling frequency are uneven, so the combined polling data should not be interpreted as a random sample of U.S. states or voters.
+
+## 5. Exploratory Data Analysis
+
+**5.1. Figure 1: Descriptive overview: Summary statistics table**
+
+```{r}
+# Loading packages
+library(tidyverse)
+library(lubridate)
+library(skimr)
+
+# Loading datasets
+pres_df <- read_csv("data/raw/1976-2024-president.csv")
+polls_combined_clean <- read.csv("data/clean/state_polls_combined_clean.csv")
+polls_2012_clean <- read_csv("data/clean/state_polls_2012_clean.csv")
+polls_2016_clean <- read.csv("data/clean/state_polls_2016_clean.csv")
+
+```
+
+```{r}
+#| echo: false
+# Summary of poll-level data
+poll_summary <- polls_clean |>
+  group_by(year) |>
+  summarise(
+    `State-poll records` = n(),
+    `State/DC units covered` = n_distinct(state),
+    `Pollsters` = n_distinct(pollster),
+    `Median sample size` = median(sample_size, na.rm = TRUE),
+    `Median days before election` = median(days_to_election, na.rm = TRUE),
+    .groups = "drop"
+  ) |>
+  pivot_longer(
+    cols = -year,
+    names_to = "Measure",
+    values_to = "value"
+  ) |>
+  pivot_wider(
+    names_from = year,
+    values_from = value
+  )
+show(poll_summary)
+```
+
+```{r}
+#| echo: false
+# Median undecided share
+undecided_summary <- polls_long |>
+  filter(candidate == "Undecided") |>
+  group_by(year) |>
+  summarise(
+    value = median(pct, na.rm = TRUE),
+    .groups = "drop"
+  ) |>
+  mutate(
+    Measure = "Median reported undecided share"
+  ) |>
+  pivot_wider(
+    names_from = year,
+    values_from = value
+  )
+```
+
+```{r}
+#| echo: false
+# Combine
+summary_table <- bind_rows(
+  poll_summary,
+  undecided_summary
+) |>
+  rename(
+    `2012 polls` = `2012`,
+    `2016 polls` = `2016`
+  )
+
+summary_table <- summary_table |>
+  mutate(
+    `2012 polls` = if_else(
+      Measure == "Median reported undecided share",
+      paste0(`2012 polls`, "%"),
+      as.character(`2012 polls`)
+    ),
+    `2016 polls` = if_else(
+      Measure == "Median reported undecided share",
+      paste0(`2016 polls`, "%"),
+      as.character(`2016 polls`)
+    )
+  )
+
+summary_table
+```
+
+The 2016 dataset contains more state-poll records, covers all 51 state/DC units, and includes more pollsters than the 2012 dataset. Median poll sample sizes are similar across the two elections. However, the typical 2016 poll was conducted closer to Election Day, and the median reported undecided share was higher in 2016.
+
+**5.2. Figure 2: Presidential vote share, 1976–2024**
+
+```{r}
+# Cleaning president data (1976-2024-president)
+pres_clean <- pres_df %>%
+  select(-notes) # removes the column "notes" as every row conatins NA 
+
+party_trends <- pres_df %>%
+# Replace missing values in party_simplified
+  mutate(party_simplified = ifelse(is.na(party_simplified), "OTHER", party_simplified)) %>%
+# Calculate national total votes per year and candidate votes per party per year
+  group_by(year, party_simplified) %>%
+  summarise(party_votes = sum(candidatevotes, na.rm = TRUE), .groups = "drop_last") %>%
+  mutate(
+    total_year_votes = sum(party_votes),
+    national_pct = (party_votes / total_year_votes) * 100
+  ) %>%
+  ungroup() %>%
+ # Lump parties into Democrat, Republican, and Other
+  mutate(
+    party_simplified = case_when(
+      party_simplified %in% c("DEMOCRAT", "REPUBLICAN") ~ party_simplified,
+      TRUE ~ "OTHER"
+    )
+  ) %>%
+# Aggregate again: Combine Libertarian % and Other % into a single "other" value per year
+  group_by(year, party_simplified) %>%
+  summarise(national_pct = sum(national_pct), .groups = "drop")
+
+# Create the line plot
+ggplot(party_trends, aes(x = year, y = national_pct, color = party_simplified, group = party_simplified)) +
+  geom_line(linewidth = 1) + 
+  geom_point(size = 2.5) + 
+  scale_color_manual(
+    values = c(
+      "DEMOCRAT" = "#2E5B88", 
+      "REPUBLICAN" = "#D9534F", 
+      "OTHER" = "#777777"
+    )
+# red and blue chosen as they usually correspod to the two major parties
+  ) +
+  scale_x_continuous(breaks = seq(1976, 2024, by = 8)) + 
+  labs( # Adding title and axis labels
+    title = "U.S. Presidential Election Vote Share (1976–2024)",
+    x = "Election Year",                                      
+    y = "National Vote Percentage (%)",                       
+    color = "Party"                                              ) +
+  theme_minimal()
+```
+
+Line plot describing the support of each of the major parties from 1974 to 2024 US elections along with the less prominent parties (such as libertarian) grouped together. The percentage of support changes year to year, showing no significant pattern. It can be observed that the margin of percentage support is reduced in more recent years.
+
+**5.3. Figure 3: Undecided share, 2012 vs 2016**
+
+```{r}
+# creating a density plot comparing proportion of undecided voters in 2012 vs 2016
+polls_combined_clean %>%
+  mutate(
+    Year = case_when( # changing the year column to also include the two major candidates
+      year == 2012 ~ "2012 (Obama/Romney)",
+      year == 2016 ~ "2016 (Clinton/Trump)"
+    )
+  ) %>%ggplot(aes(x = Undecided, fill = Year) # Undecided % on X-axis, color fill grouped by election cycle
+  ) +
+  geom_density(alpha = 0.5) + # Create smoothed density distribution curves
+  scale_fill_manual(
+    values = c( # using the same colours to reprent the major parties as done previously
+      "2012 (Obama/Romney)" = "#2B5C8F", 
+      "2016 (Clinton/Trump)" = "#E74C3C"
+    )
+  ) +
+  labs( # adding title and axis labels
+    title = "Distribution of Undecided Voters: 2012 vs. 2016 Polls", # Add title
+    x = "Undecided Percentage (%)",                                  # Label X-axis
+    y = "Density",                                                   # Label Y-axis
+    fill = "Election Cycle"                                          # Legend header title
+  ) +
+  theme_minimal()
+```
+
+Density plot showing the percentage of undecided voters in the 2012 and 2016 elections. There is an overall significantly lower percentage of undecided voters in the 2012 polls in comparison to the 2016 polls.
+
+**5.4. Figure 4: Density of Polling Frequency over time**
+
+```{r}
+polls_combined_clean %>%
+  mutate(
+    Year = case_when( # changing the year column to also include the two major candidates
+      year == 2012 ~ "2012 (Obama/Romney)",
+      year == 2016 ~ "2016 (Clinton/Trump)"
+    )
+  ) %>%
+  filter(!is.na(days_to_election)) %>% # Exlcuding NA inputs
+  filter(days_to_election <= 250) %>% # Only showing days 250 or less until the election date
+  # Creating density plot for density of polls conducted in relation to the number of dat left until the election date
+  ggplot(aes(x = days_to_election, fill = Year)) +
+  geom_density(alpha = 0.5) +
+  scale_x_reverse() +
+  scale_fill_manual(
+    values = c(
+      "2012 (Obama/Romney)" = "#2B5C8F", 
+      "2016 (Clinton/Trump)" = "#E74C3C"
+    )
+  ) +
+  labs( # Adding title and axis labels
+    title = "Density of Polling Frequency over Time",
+    x = "Days Remaining to Election Day",
+    y = "Density of Polling Observations",
+    fill = "Election Cycle"
+  ) +
+  theme_minimal()
+
+```
+
+Density plot describing the density of polling data collected in relation to the remaining days until the 2012 and 2016 elections. Both years follow a similar trajectory of low amounts of polling at dates further from the election, then a spike as election day approaches. The spike in polling in 2016 is more significant than in 2012.
+
+**5.5. Figure 5: Accuracy and proximity to Election Day**
+
+```{r}
+#| echo: false
+# Create actual election margin
+actual_results <- pres_df|>
+  filter(
+    year %in% c(2012, 2016),
+    party_simplified %in% c("DEMOCRAT", "REPUBLICAN")
+  ) |>
+  group_by(year, state, party_simplified) |>
+  summarise(
+    votes = sum(candidatevotes),
+    totalvotes = first(totalvotes),
+    .groups = "drop"
+  ) |>
+  mutate(vote_share = votes / totalvotes * 100) |>
+  select(year, state, party_simplified, vote_share) |>
+  pivot_wider(
+    names_from = party_simplified,
+    values_from = vote_share
+  ) |>
+  mutate(
+    actual_margin = DEMOCRAT - REPUBLICAN,
+    state = str_to_lower(state),
+    state = str_replace_all(state, " ", "-"),
+    state = if_else(
+      state == "district-of-columbia",
+      "washington-dc",
+      state
+    )
+  ) |>
+  select(year, state, actual_margin)
+```
+
+```{r}
+#| echo: false
+# Create polling error
+poll_accuracy <- polls_clean |>
+  mutate(
+    poll_margin = case_when(
+      year == 2012 ~ Obama - Romney,
+      year == 2016 ~ Clinton - Trump
+    )
+  ) |>
+  left_join(actual_results, by = c("year", "state")) |>
+  mutate(
+    absolute_error = abs(poll_margin - actual_margin)
+  )
+```
+
+```{r}
+#| echo: false
+poll_accuracy |>
+  ggplot(aes(
+    x = days_to_election,
+    y = absolute_error
+  )) +
+  geom_point(
+    alpha = 0.12,
+    size = 1.3
+  ) +
+  geom_smooth(
+    se = FALSE,
+    linewidth = 1
+  ) +
+  scale_x_reverse(
+    breaks = c(600, 500, 400, 300, 200, 100, 0)
+  ) +
+  facet_wrap(
+    ~ year,
+    labeller = labeller(
+      year = c(
+        `2012` = "2012",
+        `2016` = "2016"
+      )
+    )
+  ) +
+  labs(
+    title = "Polling accuracy improves as Election Day approaches",
+    subtitle = "Absolute state-level polling error in the 2012 and 2016 U.S. presidential elections",
+    x = "Days before Election Day",
+    y = "Absolute polling error (percentage points)",
+    caption = "Lower values indicate greater polling accuracy."
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(
+    plot.title = element_text(face = "bold", size = 14),
+    plot.subtitle = element_text(size = 11),
+    strip.text = element_text(face = "bold"),
+    panel.grid.minor = element_blank(),
+  )
+```
+Figure 5 shows that polling error generally decreased as Election Day approached, although the pattern differed between 2012 and 2016. In 2012, the decline in absolute polling error was more pronounced, suggesting that polls became noticeably more accurate closer to Election Day. In 2016, the trend was flatter, with only a modest improvement in accuracy over time. Polling errors were also more dispersed in 2016, with several observations showing substantially larger errors than in 2012. Overall, the figure suggests that proximity to Election Day was associated with improved polling accuracy, but the strength of this relationship varied across the two election cycles.
+
+**5.4. Figure 6: Pollster-level error**
+
+**5.4. Figure 7: Error by mode**
+```{r}
+p2 <- ggplot(
+  mode_accuracy,
+  aes(
+    x = mean_abs_error,
+    y = reorder(mode, mean_abs_error),
+    fill = mean_abs_error
+  )
+) +
+  geom_col(width = 0.7) +
+  geom_text(
+    aes(label = round(mean_abs_error, 2)),
+    hjust = -0.2,
+    size = 3.5
+  ) +
+  scale_fill_gradient(
+    low = "#66c2a5",
+    high = "#fc8d62"
+  ) +
+  labs(
+    title = "Polling Accuracy by Survey Mode",
+    subtitle = "Lower error indicates estimates closer to actual election results",
+    x = "Mean Absolute Polling Error (percentage points)",
+    y = "Survey Mode"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(
+      size = 15,
+      face = "bold"
+    ),
+    plot.subtitle = element_text(
+      size = 10
+    ),
+    panel.grid.major.y = element_blank(),
+    legend.position = "none"
+  ) +
+  expand_limits(
+    x = max(mode_accuracy$mean_abs_error) * 1.12
+  )
+
+print(p2)
+```
+Figure 7 shows that polling accuracy varies across survey modes in the 2012 and 2016 U.S. presidential elections. Automated Phone polls had the lowest mean absolute error at 2.94 percentage points, indicating that their estimates were closest to the actual election results. Internet, IVR/Online, and IVR/Live Phone polls produced similar errors of around 4.1 percentage points, while Live Phone polls had a higher error of 4.63 percentage points. Live Phone/Online polls showed the largest error at 6.20 percentage points. Overall, the results suggest that survey mode is associated with differences in polling accuracy, although the number of polls varies across survey modes and may partly explain the differences observed.
+
+## Research Questions
+##Ethical considerations and limitations 
+The polling data may not fully represent all voters because different polls use different sampling methods, survey modes and voter groups, and some states, pollsters and polling modes are represented more heavily than others. Missing values, particularly for undecided voters and candidates not included in some polls, may also affect the results. In addition, the analysis is observational, so differences in polling accuracy should be interpreted as associations rather than evidence that a particular pollster, survey mode or timing directly causes better or worse accuracy. Care should also be taken not to overgeneralise the findings to all voters or future elections. 
+## References
+
+*Deed - Attribution-NonCommercial-ShareAlike 3.0 Unported - Creative Commons*. (2026). Creativecommons.Org. https://creativecommons.org/licenses/by-nc-sa/3.0/deed.en
+
+*GNU General Public License version 2*. (2006, October 31). Open Source Initiative. https://opensource.org/license/gpl-2.0
+
+MIT Election Data and Science Lab. 2017. “U.S. President 1976–2024.” Harvard Dataverse. [**https://doi.org/10.7910/DVN/42MVDXLinks to an external site.**](https://doi.org/10.7910/DVN/42MVDX). Data retrieved: 27th July 2026. 
+
+
