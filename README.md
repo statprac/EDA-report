@@ -1,49 +1,74 @@
-# Exploratory Data Analysis — Presidential Polling and Results
+# STATX290 Exploratory Data Analysis
 
-A starting place for your EDA Report, focusing on data cleaning.
+This repository contains the group exploratory data analysis of U.S. presidential polling and election results for STATX290.
 
+The project uses state-level polling data from the 2012 and 2016 U.S. presidential elections together with certified presidential election results from 1976–2024. The main focus is on polling accuracy and how it relates to factors such as election timing, pollster, survey mode and undecided voter share.
 
-## Project structure
+## Data
 
-```
-eda_project/
-├── README.md                     <- this file
-├── explore-poll-clean-data.qmd   <- data cleaning/eda exploration
-├── clean-poll-data.R             <- fully reproducible record of final data cleaning process
-└── data/
-    ├── raw/                  <- PUT DATA HERE: read-only, never edited
-    │   ├── state_polls_2012.csv
-    │   ├── state_polls_2016.csv
-    |   ├── 1976-2024-president.csv
-    │   └── ...
-    └── clean/                <- YOUR cleaned data is written here by code
-```
+The project uses three raw datasets:
 
-**The golden rule:** `data/raw/` is immutable. Never edit those files by
-hand and never write over those files. Every cleaning, recoding, or reshaping decision is **coded**,
-so that anyone can reproduce `data/clean/` from `data/raw/` by re-running the `clean-poll-data.R`
-code. If you find yourself opening a CSV in Excel to "fix" something, stop and write it as code instead.
+- State-Level Pre-Election Polls (2012)
+- State-Level Pre-Election Polls (2016)
+- Certified Presidential Returns 1976–2024
 
-## Getting started
+The raw datasets are stored in `data/raw/` and are kept unchanged.
 
-**One** student should:
+Cleaned polling datasets are generated from the raw data and stored in `data/clean/`.
 
-1. Click 'Use this template', in the top right-hand corner of this page on GitHub.
-2. Select 'Create a new repository'.
-3. Create a new private repository under the Team Organisation (not under your personal account).
+## Repository Structure
 
-**Each** student should:
+- `EDA-report.qmd`: main exploratory data analysis report
+- `data/raw/`: original datasets
+- `data/clean/`: cleaned datasets generated for analysis
+- `clean-poll-data.R`: data cleaning and preparation script
+- `README.md`: project overview and reproducibility instructions
 
-1. Open the project in RStudio by cloning your team's new repository locally.
-2. Install any required packages.
+## Data Cleaning
 
-Each team member may want to have their own copy of the `explore-poll-clean-data.qmd` to use.
-If so, make new copies of this file for each team member.
-Otherwise, each student can edit the existing file locally but only one member should commit and push to GitHub at a time (and other students should update their local copy with most recent versions).
+The polling data were cleaned before analysis. The main steps included:
 
-## Reproducibility check
+- standardising variable names and formats
+- converting dates and calculating days before Election Day
+- handling missing and structurally unavailable values
+- standardising state names
+- checking duplicate observations and unusual values
+- combining the 2012 and 2016 polling datasets
+- creating consistent candidate and polling variables for analysis
 
-You can check reproducibility by restart R (fresh session) and running the whole script/quarto document from
-top to bottom, starting from the raw data. If it completes without error, then it's reproducible. Don't forget to 
-document the steps you take also!
+Raw files were not manually edited. Cleaned datasets can be reproduced from the raw data using `clean-poll-data.R` in this repository.
 
+## Exploratory Data Analysis
+
+The report explores:
+
+- historical presidential vote shares
+- undecided voter distributions in 2012 and 2016
+- polling activity before Election Day
+- polling error and election timing
+- differences in polling accuracy across pollsters
+- differences in polling accuracy across survey modes
+
+These findings are then used to develop research questions for further analysis.
+
+## Reproducing the Analysis
+
+1. Clone or download this repository.
+2. Open the R project in RStudio.
+3. Run the data cleaning script to generate the files in `data/clean/`.
+4. Open `EDA-report.qmd`.
+5. Render the Quarto document.
+
+The report is designed to run from a fresh R session using files contained in this repository.
+
+## Team Workflow
+
+The project was completed collaboratively using GitHub. Team members worked on separate branches and used commits and pull requests to combine changes into the main report.
+
+Commit messages were used to describe changes, and GitHub was used to review and manage contributions throughout the project.
+
+## Authors
+- Linh Chi Nguyen
+- Isobel Cusack
+- Caitlin Knowles
+- Manjun Xu
