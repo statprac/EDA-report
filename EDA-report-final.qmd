@@ -367,6 +367,94 @@ poll_accuracy |>
 Figure 5 shows that polling error generally decreased as Election Day approached, although the pattern differed between 2012 and 2016. In 2012, the decline in absolute polling error was more pronounced, suggesting that polls became noticeably more accurate closer to Election Day. In 2016, the trend was flatter, with only a modest improvement in accuracy over time. Polling errors were also more dispersed in 2016, with several observations showing substantially larger errors than in 2012. Overall, the figure suggests that proximity to Election Day was associated with improved polling accuracy, but the strength of this relationship varied across the two election cycles.
 
 **5.4. Figure 6: Pollster-level error**
+```{r}
+state_polls_combined_long <- read.csv(file = "data/clean/state_polls_combined_long.csv")
+
+##isolate 2012, 2016 elections (remove 1976 - 2008 & 2020-2024 election results)
+president_2012_2016 <- filter(pres_df, year %in% c(2012, 2016))
+
+##party_simplified: - libertarians become OTHER
+president_2012_2016_simple <- mutate(president_2012_2016_simple, party_simplified = str_replace_all(party_simplified, "LIBERTARIAN", "OTHER"))
+
+##combine all OTHER entries into a singular entry per state
+result <- president_2012_2016_simple |>
+  group_by(year, state, party_simplified, totalvotes) |>
+  summarise(across(c(candidatevotes), sum))
+
+##add column of percentages
+result_pct <- mutate(result, election_pct = round(candidatevotes/totalvotes, digits = 4)*100)
+
+##working w/ pollster data
+
+##state: removing hyphens, and washington-dc == district of columbia
+Xstate_polls_combined_long <- mutate(state_polls_combined_long, state = str_replace_all(state, "washington-dc", "district of columbia"))
+Xstate_polls_combined_long <- mutate(Xstate_polls_combined_long, state = str_replace_all(state, "new-hampshire", "new hampshire"))
+Xstate_polls_combined_long <- mutate(Xstate_polls_combined_long, state = str_replace_all(state, "new-jersey", "new jersey"))
+Xstate_polls_combined_long <- mutate(Xstate_polls_combined_long, state = str_replace_all(state, "new-mexico", "new mexico"))
+Xstate_polls_combined_long <- mutate(Xstate_polls_combined_long, state = str_replace_all(state, "new-york", "new york"))
+Xstate_polls_combined_long <- mutate(Xstate_polls_combined_long, state = str_replace_all(state, "north-carolina", "north carolina"))
+Xstate_polls_combined_long <- mutate(Xstate_polls_combined_long, state = str_replace_all(state, "north-dakota", "north dakota"))
+Xstate_polls_combined_long <- mutate(Xstate_polls_combined_long, state = str_replace_all(state, "rhode-island", "rhode island"))
+Xstate_polls_combined_long <- mutate(Xstate_polls_combined_long, state = str_replace_all(state, "south-carolina", "south carolina"))
+Xstate_polls_combined_long <- mutate(Xstate_polls_combined_long, state = str_replace_all(state, "south-dakota", "south dakota"))
+Xstate_polls_combined_long <- mutate(Xstate_polls_combined_long, state = str_replace_all(state, "west-virginia", "west virginia"))
+
+##columns needing capitalisation (state, party_group)
+caps_state_polls_combined_long <- mutate(Xstate_polls_combined_long, state = str_to_upper(state))
+caps_state_polls_combined_long <- mutate(caps_state_polls_combined_long, party_group = str_to_upper(party_group))
+
+##rename party_group column to party_simplified
+caps_state_polls_combined_long <- rename(caps_state_polls_combined_long, party_simplified = party_group)
+
+##creating a combined dataframe
+combined_polls <-left_join(caps_state_polls_combined_long, result_pct, relationship =
+                       "many-to-many", by = join_by(year, state, party_simplified))
+
+##removing undecided responses (no corresponding statistic in election results)
+combined_polls_other <- filter(combined_polls, party_simplified %in% c("DEMOCRAT", "REPUBLICAN", "OTHER"))
+
+##create new column variable of error between pollster results and election result
+combined_polls_error <- mutate(combined_polls_other, error = abs(election_pct - pct))
+
+
+##number of polls per pollster
+state_polls_combined <- mutate(polls_combined_clean, count = 1 )
+
+count <- state_polls_combined|>
+  group_by(pollster) |>
+  summarise(across(c(count), sum))
+
+##number of polls per pollster
+ggplot(state_polls_combined, aes(y = pollster)) +
+  geom_bar()
+
+##remove all na entries
+combined_polls_error <- filter(combined_polls_error, !is.na(error))
+
+##average error by pollster
+pollster_error <- combined_polls_error |>
+  group_by(pollster) |>
+  summarise(across(c(error), mean))
+
+pollster_error <- mutate(pollster_error, error = round(error, digit = 2))
+
+pollster_error <- left_join(pollster_error, count, by = join_by(pollster))
+
+##pollsters involved in <100 polls, error = abs(election% - pollster%)
+##5 most prolific pollsters
+pollster_error_100 <- filter(pollster_error, count >= 100 )
+
+ggplot(pollster_error_100, aes(x = error, y = pollster)) +
+  geom_col() +
+  geom_text(aes(label = error), nudge_x = -.2, size = 3, colour = "white", fontface = "bold") +
+  labs(title = "Polling accurary by pollster", 
+       x = "Mean absolute polling error (percentage)", 
+       y = "Pollster")
+
+
+
+```
+Figure 6 shows the average polling error for the five most prolific pollsters over the 2012 and 2016 US presidential elections. All results fall within the small range from 2.72 to 4.69. From the graph it can be ascertained that the pollster Ramussen is the most accurate as its error is the least, while Ipsos/Reuters is the least accurate as its error is greatest. The error is the difference between results collected by the pollsters and the election results. Taking into consideration the rest of the data set, most pollsters collected data from less than 10 polls, whilst the pollsters pictured in the graph collected data from 104 polls (UPI/CVOTER), 152 polls (SurveyMonkey), 138 polls (Rasmussen), 182 polls (PPP(D)), 167 polls (Ipsos/Reuters). 
 
 **5.4. Figure 7: Error by mode**
 ```{r}
