@@ -54,7 +54,7 @@ These findings are then used to develop research questions for further analysis.
 ## Reproducing the Analysis
 
 1. Clone or download this repository.
-2. Open the R project in RStudio.
+2. Open the repository folder in RStudio.
 3. Run the data cleaning script to generate the files in `data/clean/`.
 4. Open `EDA-report.qmd`.
 5. Render the Quarto document.
