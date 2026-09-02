@@ -1,6 +1,6 @@
 # STATX290 Exploratory Data Analysis
 
-This repository contains the group exploratory data analysis of U.S. presidential polling and election results for STATX290.
+This repository contains the group exploratory data analysis of U.S. presidential polling and election results
 
 The project uses state-level polling data from the 2012 and 2016 U.S. presidential elections together with certified presidential election results from 1976–2024. The main focus is on polling accuracy and how it relates to factors such as election timing, pollster, survey mode and undecided voter share.
 
