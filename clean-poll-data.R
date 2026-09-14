@@ -21,10 +21,20 @@ candidate_cols_2016 <- c("Trump", "Clinton", "Johnson",
 
 # 2. Import raw data 
 
-polls_2012_raw <- read_csv(file.path(raw_dir, "state_polls_2012.csv"))
-polls_2016_raw <- read_csv(file.path(raw_dir, "state_polls_2016.csv"))
+polls_2012_raw <- read_csv(
+  file.path(raw_dir, "state_polls_2012.csv"),
+  show_col_types = FALSE
+)
 
-glimpse(polls_2012_raw)
+polls_2016_raw <- read_csv(
+  file.path(raw_dir, "state_polls_2016.csv"),
+  show_col_types = FALSE
+)
+
+result_1976_2024_raw <- read_csv(
+  file.path(raw_dir, "1976-2024-president.csv"),
+  show_col_types = FALSE
+)
 
 # 3. Clean poll-level data
 

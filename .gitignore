@@ -6,6 +6,5 @@
 # Quarto rendering artifacts
 *_files/
 *_cache/
-
 # Rendered output
 *.html
